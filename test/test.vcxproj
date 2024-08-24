@@ -172,6 +172,9 @@
     <ProjectReference Include="..\dynamics\dynamics.vcxproj">
       <Project>{7db5070e-10f7-4733-b112-39321e0d1fc4}</Project>
     </ProjectReference>
+    <ProjectReference Include="..\imu\imu.vcxproj">
+      <Project>{7a3eb3b4-cd17-4927-8102-d95c4fa73a45}</Project>
+    </ProjectReference>
     <ProjectReference Include="..\kinematics\kinematics.vcxproj">
       <Project>{f89bd993-e336-47e6-894e-b74bcebbfe17}</Project>
     </ProjectReference>

@@ -7,11 +7,12 @@
 #include "../kinematics/kinematic_optimizer.h"
 #include "../dynamics/dynamic_armature.h"
 #include "../dynamics/dynamic_model.h"
+#include "../imu/eskf_imu.h"
 
 namespace py = pybind11;
 
 PYBIND11_MODULE(carticulate, m) {
-    m.doc() = "articulate uitls in C++";
+    m.doc() = "articulate utils in C++";
 
     py::class_<KinematicArmature>(m, "KinematicArmature")
         .def(py::init<>(), "initialize an empty kinematic armature")
@@ -124,4 +125,23 @@ PYBIND11_MODULE(carticulate, m) {
         .def(py::init<int, const Eigen::Vector3f &>(), "initialize an enternal torque", py::arg("joint_idx"), py::arg("torque"))
         .def_readwrite("joint_idx", &DynamicModel::ExternalTorque::joint_idx, "joint index")
         .def_readwrite("torque", &DynamicModel::ExternalTorque::torque, "torque applied to the joint in the world frame");
+
+    py::class_<ESKF_IMU>(m, "ESKF")
+        .def(py::init<float, float, float, float, float>(), "initialize ESKF with accelerometer[a]/gyroscope[w]/magnetometer[m] measurement noise[n]/random walk[w] standard deviation", py::arg("an"), py::arg("wn"), py::arg("aw"), py::arg("ww"), py::arg("mn"))
+        .def("initialize_9dof", py::overload_cast<const Eigen::Matrix3f &, const Eigen::Vector3f &, const Eigen::Vector3f &>(&ESKF_IMU::initialize_9dof), "9dof initialization with known sensor orientation RIS, gravity vector gI, magnetic field vector nI, and return succeed or not", py::arg("RIS"), py::arg("gI"), py::arg("nI"))
+        .def("initialize_9dof", py::overload_cast<const Eigen::Vector3f &, const Eigen::Vector3f &>(&ESKF_IMU::initialize_9dof), "9dof initialization with accelerometer measurement am and magnetometer measurement mm, and return succeed or not", py::arg("am"), py::arg("mm"))
+        .def("initialize_6dof", py::overload_cast<const Eigen::Matrix3f &, const Eigen::Vector3f &>(&ESKF_IMU::initialize_6dof), "6dof initialization with known sensor orientation RIS and gravity vector gI, and return succeed or not", py::arg("RIS"), py::arg("gI"))
+        .def("initialize_6dof", py::overload_cast<const Eigen::Vector3f &>(&ESKF_IMU::initialize_6dof), "6dof initialization with accelerometer measurement am and return succeed or not", py::arg("am"))
+        .def("predict", &ESKF_IMU::predict, "ESKF prediction with accelerometer[a]/gyroscope[w] measurement[m] and time interval dt", py::arg("am"), py::arg("wm"), py::arg("dt"))
+        .def("correct", &ESKF_IMU::correct, "ESKF correction with accelerometer[a]/gyroscope[w]/magnetometer[m]/global position[p]/global velocity[v] measurement[m]/noise standard deviation[n], and returns observation scores for debug", py::arg("am") = ESKF_IMU::null_observation, py::arg("wm") = ESKF_IMU::null_observation, py::arg("mm") = ESKF_IMU::null_observation, py::arg("pm") = ESKF_IMU::null_observation, py::arg("vm") = ESKF_IMU::null_observation, py::arg("pn") = 1e-2, py::arg("vn") = 1e-2)
+        .def("get_position", [](const ESKF_IMU &eskf) { return eskf.get_state().p; }, "get sensor position estimation")
+        .def("get_velocity", [](const ESKF_IMU &eskf) { return eskf.get_state().v; }, "get sensor velocity estimation")
+        .def("get_orientation_q", [](const ESKF_IMU &eskf) { return Qf_to_V4f(eskf.get_state().q); }, "get sensor orientation estimation (quaternion)")
+        .def("get_orientation_R", [](const ESKF_IMU &eskf) { return eskf.get_state().q.matrix(); }, "get sensor orientation estimation (rotation matrix)")
+        .def("get_accelerometer_bias", [](const ESKF_IMU &eskf) { return eskf.get_state().ab; }, "get accelerometer bias estimation")
+        .def("get_gyroscope_bias", [](const ESKF_IMU &eskf) { return eskf.get_state().wb; }, "get gyroscope bias estimation")
+        .def("get_state_covariance_matrix", &ESKF_IMU::get_P, "get state covariance matrix")
+        .def("get_gravity_vector", &ESKF_IMU::get_gI, "get gravity vector")
+        .def("get_magnetic_field_vector", &ESKF_IMU::get_nI, "get magnetic field vector")
+        .def_readonly_static("null_observation", &ESKF_IMU::null_observation, "null observation object");
 }

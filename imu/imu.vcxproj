@@ -18,11 +18,20 @@
       <Platform>x64</Platform>
     </ProjectConfiguration>
   </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="detector.cpp" />
+    <ClCompile Include="eskf_imu.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="detector.h" />
+    <ClInclude Include="eskf_imu.h" />
+    <ClInclude Include="utils.h" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{cad0b1bf-4b25-4cd0-b2ff-e10b2da2afee}</ProjectGuid>
-    <RootNamespace>pybind</RootNamespace>
+    <ProjectGuid>{7a3eb3b4-cd17-4927-8102-d95c4fa73a45}</ProjectGuid>
+    <RootNamespace>imu</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -40,13 +49,13 @@
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
-    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v143</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
-    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v143</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
@@ -70,30 +79,6 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <TargetExt>.pyd</TargetExt>
-    <IncludePath>$(IncludePath)</IncludePath>
-    <LibraryPath>$(LibraryPath)</LibraryPath>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <TargetExt>.pyd</TargetExt>
-    <IncludePath>$(IncludePath)</IncludePath>
-    <LibraryPath>$(LibraryPath)</LibraryPath>
-    <TargetName>carticulate</TargetName>
-    <CopyLocalProjectReference>false</CopyLocalProjectReference>
-    <CopyCppRuntimeToOutputDir>false</CopyCppRuntimeToOutputDir>
-    <CopyLocalDeploymentContent>false</CopyLocalDeploymentContent>
-    <CopyLocalDebugSymbols>false</CopyLocalDebugSymbols>
-  </PropertyGroup>
-  <PropertyGroup Label="Vcpkg">
-    <VcpkgEnabled>true</VcpkgEnabled>
-    <VcpkgAutoLink>false</VcpkgAutoLink>
-    <VcpkgManifestInstall>false</VcpkgManifestInstall>
-  </PropertyGroup>
-  <PropertyGroup Label="Vcpkg" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <VcpkgUseMD>
-    </VcpkgUseMD>
-  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
@@ -128,12 +113,10 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\Users\Admin\AppData\Local\Programs\Python\Python38\Include;C:\Users\Admin\AppData\Local\Programs\Python\Python38\lib\site-packages\pybind11\include;C:\Users\Admin\Work\projects\vcpkg\installed\x64-windows\include\eigen3;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>C:\Users\Admin\AppData\Local\Programs\Python\Python38\libs;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -142,49 +125,16 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>false</SDLCheck>
-      <PreprocessorDefinitions>NDEBUG;_CONSOLE;GLOG_NO_ABBREVIATED_SEVERITIES;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\Users\Admin\AppData\Local\Programs\Python\Python38\Include;C:\Users\Admin\AppData\Local\Programs\Python\Python38\lib\site-packages\pybind11\include;C:\Users\Admin\Work\projects\vcpkg\installed\x64-windows\include\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>C:\Users\Admin\AppData\Local\Programs\Python\Python38\libs;C:\Users\Admin\Work\projects\vcpkg\installed\x64-windows\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>fmt.lib;g2o_core.lib;g2o_stuff.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
-    <PostBuildEvent>
-      <Command>set PYTHONPATH=$(OutDir)
-set PYINSTALLDIR=$(OutDir)$(SolutionName)\
-if exist %PYINSTALLDIR% (
-    rmdir /S /Q %PYINSTALLDIR%
-)
-pybind11-stubgen $(TargetName) --enum-class-locations RobustKernel:carticulate --numpy-array-use-type-var -o %PYINSTALLDIR%
-xcopy /y /d "$(OutDir)*.lib" %PYINSTALLDIR%
-xcopy /y /d "$(OutDir)*.dll" %PYINSTALLDIR%
-xcopy /y /d "$(OutDir)$(TargetFileName)" %PYINSTALLDIR%
-echo from .carticulate import * &gt; %PYINSTALLDIR%__init__.py</Command>
-    </PostBuildEvent>
   </ItemDefinitionGroup>
-  <ItemGroup>
-    <ClCompile Include="pybind.cpp" />
-    <ClCompile Include="utils.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\dynamics\dynamics.vcxproj">
-      <Project>{7db5070e-10f7-4733-b112-39321e0d1fc4}</Project>
-    </ProjectReference>
-    <ProjectReference Include="..\imu\imu.vcxproj">
-      <Project>{7a3eb3b4-cd17-4927-8102-d95c4fa73a45}</Project>
-    </ProjectReference>
-    <ProjectReference Include="..\kinematics\kinematics.vcxproj">
-      <Project>{f89bd993-e336-47e6-894e-b74bcebbfe17}</Project>
-    </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="utils.h" />
-  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

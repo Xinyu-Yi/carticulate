@@ -7,16 +7,20 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "kinematics", "kinematics\ki
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "test", "test\test.vcxproj", "{0155871E-A9F8-4B21-BBBF-8173C9B136F6}"
 	ProjectSection(ProjectDependencies) = postProject
+		{7A3EB3B4-CD17-4927-8102-D95C4FA73A45} = {7A3EB3B4-CD17-4927-8102-D95C4FA73A45}
 		{7DB5070E-10F7-4733-B112-39321E0D1FC4} = {7DB5070E-10F7-4733-B112-39321E0D1FC4}
 		{CAD0B1BF-4B25-4CD0-B2FF-E10B2DA2AFEE} = {CAD0B1BF-4B25-4CD0-B2FF-E10B2DA2AFEE}
 	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "pybind", "pybind\pybind.vcxproj", "{CAD0B1BF-4B25-4CD0-B2FF-E10B2DA2AFEE}"
 	ProjectSection(ProjectDependencies) = postProject
+		{7A3EB3B4-CD17-4927-8102-D95C4FA73A45} = {7A3EB3B4-CD17-4927-8102-D95C4FA73A45}
 		{7DB5070E-10F7-4733-B112-39321E0D1FC4} = {7DB5070E-10F7-4733-B112-39321E0D1FC4}
 	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "dynamics", "dynamics\dynamics.vcxproj", "{7DB5070E-10F7-4733-B112-39321E0D1FC4}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "imu", "imu\imu.vcxproj", "{7A3EB3B4-CD17-4927-8102-D95C4FA73A45}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -58,6 +62,14 @@ Global
 		{7DB5070E-10F7-4733-B112-39321E0D1FC4}.Release|x64.Build.0 = Release|x64
 		{7DB5070E-10F7-4733-B112-39321E0D1FC4}.Release|x86.ActiveCfg = Release|Win32
 		{7DB5070E-10F7-4733-B112-39321E0D1FC4}.Release|x86.Build.0 = Release|Win32
+		{7A3EB3B4-CD17-4927-8102-D95C4FA73A45}.Debug|x64.ActiveCfg = Debug|x64
+		{7A3EB3B4-CD17-4927-8102-D95C4FA73A45}.Debug|x64.Build.0 = Debug|x64
+		{7A3EB3B4-CD17-4927-8102-D95C4FA73A45}.Debug|x86.ActiveCfg = Debug|Win32
+		{7A3EB3B4-CD17-4927-8102-D95C4FA73A45}.Debug|x86.Build.0 = Debug|Win32
+		{7A3EB3B4-CD17-4927-8102-D95C4FA73A45}.Release|x64.ActiveCfg = Release|x64
+		{7A3EB3B4-CD17-4927-8102-D95C4FA73A45}.Release|x64.Build.0 = Release|x64
+		{7A3EB3B4-CD17-4927-8102-D95C4FA73A45}.Release|x86.ActiveCfg = Release|Win32
+		{7A3EB3B4-CD17-4927-8102-D95C4FA73A45}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
