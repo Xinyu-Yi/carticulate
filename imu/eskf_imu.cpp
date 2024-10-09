@@ -2,6 +2,7 @@
 #include <iostream>
 
 #define TRUNCATION_ORDER     3    // discrete-time integration truncation order of exponential map
+#define BIAS_INITIAL_VALUE   5    // initial uncertainty of sensor bias
 
 #define WINDOW_SIZE          6
 #define CONSTANT_G_NORM      9.8
@@ -10,7 +11,7 @@
 
 #define MAGNORM_THRESHOLD    0.2   // MagNorm
 #define ACCNORM_THRESHOLD    2     // AccNorm
-#define GYRNORM_THRESHOLD    0.05  // GyrNorm
+#define GYRNORM_THRESHOLD    0.08  // GyrNorm
 
 #define OBSERVATION_MAGNORTH    0x0001
 #define OBSERVATION_GRAVITY     0x0002
@@ -142,8 +143,8 @@ bool ESKF_IMU::initialize_9dof(const Eigen::Matrix3f &RIS, const Eigen::Vector3f
     P.block<3, 3>(0, 0) = Eigen::Matrix3f::Identity();                        // Var(p)
     P.block<3, 3>(3, 3) = Eigen::Matrix3f::Zero();                            // Var(v)
     P.block<3, 3>(6, 6) = Eigen::Matrix3f::Identity() * 1e-3;                 // Var(theta)
-    P.block<3, 3>(9, 9) = Eigen::Matrix3f::Identity() * 600 * pow(aw, 2);     // Var(ab)
-    P.block<3, 3>(12, 12) = Eigen::Matrix3f::Identity() * 600 * pow(ww, 2);   // Var(wb)
+    P.block<3, 3>(9, 9) = Eigen::Matrix3f::Identity() * BIAS_INITIAL_VALUE * pow(aw, 2);     // Var(ab)
+    P.block<3, 3>(12, 12) = Eigen::Matrix3f::Identity() * BIAS_INITIAL_VALUE * pow(ww, 2);   // Var(wb)
 
     return true;
 }
@@ -182,8 +183,8 @@ bool ESKF_IMU::initialize_6dof(const Eigen::Matrix3f &RIS, const Eigen::Vector3f
     P.block<3, 3>(0, 0) = Eigen::Matrix3f::Identity();                        // Var(p)
     P.block<3, 3>(3, 3) = Eigen::Matrix3f::Zero();                            // Var(v)
     P.block<3, 3>(6, 6) = Eigen::Matrix3f::Identity() * 1e-3;                 // Var(theta)
-    P.block<3, 3>(9, 9) = Eigen::Matrix3f::Identity() * 600 * pow(aw, 2);     // Var(ab)
-    P.block<3, 3>(12, 12) = Eigen::Matrix3f::Identity() * 600 * pow(ww, 2);   // Var(wb)
+    P.block<3, 3>(9, 9) = Eigen::Matrix3f::Identity() * BIAS_INITIAL_VALUE * pow(aw, 2);     // Var(ab)
+    P.block<3, 3>(12, 12) = Eigen::Matrix3f::Identity() * BIAS_INITIAL_VALUE * pow(ww, 2);   // Var(wb)
 
     return true;
 }
