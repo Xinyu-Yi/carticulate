@@ -164,7 +164,8 @@ pybind11-stubgen $(TargetName) --enum-class-locations RobustKernel:carticulate -
 xcopy /y /d "$(OutDir)*.lib" %PYINSTALLDIR%
 xcopy /y /d "$(OutDir)*.dll" %PYINSTALLDIR%
 xcopy /y /d "$(OutDir)$(TargetFileName)" %PYINSTALLDIR%
-echo from .carticulate import * &gt; %PYINSTALLDIR%__init__.py</Command>
+xcopy /y /d "$(SolutionDir)scripts\*" %PYINSTALLDIR%
+</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>

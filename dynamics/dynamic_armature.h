@@ -10,13 +10,13 @@ struct DynamicArmature {
     std::string name;                      // armature name
     std::vector<int> parent;               // parent joint index (must satisfying parent[i] < i)
     std::vector<Eigen::Vector3f> bone;     // joint local position in the parent frame
-    Eigen::Vector3f gravity;               // gravitional acceleration in the world frame
+    Eigen::Vector3f gravity;               // gravitational acceleration in the world frame
     std::vector<Eigen::Vector3f> com;      // body center of mass in the joint frame
     std::vector<float> mass;               // body mass
 #ifndef USE_DIAGONAL_INERTIA
-    std::vector<Eigen::Matrix3f> inertia;  // body inertia in the joint frame (Ixx, Iyy, Izz, Ixy, Iyz, Ixz)
+    std::vector<Eigen::Matrix3f> inertia;  // body inertia in the CoM frame (Ixx, Iyy, Izz, Ixy, Iyz, Ixz)
 #else
-    std::vector<Eigen::Vector3f> inertia;  // body inertia in the joint frame (Ixx, Iyy, Izz)
+    std::vector<Eigen::Vector3f> inertia;  // body inertia in the CoM frame (Ixx, Iyy, Izz)
 #endif
 
     DynamicArmature() : n_joints(0) {}
