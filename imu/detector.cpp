@@ -1,5 +1,124 @@
 #include "detector.h"
 
+#ifndef FULL_ESKF_WITH_POS_VEL
+
+#define WINDOW_SIZE          10
+#define CONSTANT_G_NORM      9.8
+#define CONSTANT_N_NORM      1
+
+#define ENABLE_INITIALIZATION_CHECK
+#define INITIALIZATION_A_TH    1    // "|aS| - g" threshold
+#define INITIALIZATION_M_TH    0.1  // "|mS| - n" threshold
+
+#define ENABLE_GRAV_CORRECTION
+#define GRAV_CORRECTION_A_TH    2    // "|aS| - g" threshold
+
+#define ENABLE_MAGN_CORRECTION
+#define MAGN_CORRECTION_A_TH    1    // "|aS| - g" threshold
+#define MAGN_CORRECTION_M_TH    0.1  // "|mS| - n" threshold
+#define MAGN_CORRECTION_D_TH    10   // "<aS, mS> - gnangle" threshold
+
+#define ENABLE_BIAS_CORRECTION
+#define BIAS_CORRECTION_A_TH    0.1   // "|aS - aS_recent|" threshold
+#define BIAS_CORRECTION_M_TH    0.01  // "|mS - mS_recent|" threshold
+
+
+void StateDetector::init(const Eigen::Vector3f &gI_, const Eigen::Vector3f &nI_)
+{
+    gnangle = angleBetween(gI_, nI_);
+    am.clear();
+    mm.clear();
+}
+
+void StateDetector::add(const Eigen::Vector3f &am_, const Eigen::Vector3f &mm_)
+{
+    am.push_back(am_);
+    mm.push_back(mm_);
+    if (am.size() > WINDOW_SIZE) am.pop_front();
+    if (mm.size() > WINDOW_SIZE) mm.pop_front();
+}
+
+float StateDetector::initialization_confidence() const
+{
+#ifdef ENABLE_INITIALIZATION_CHECK
+    if (am.size() < WINDOW_SIZE || mm.size() < WINDOW_SIZE) return 0;
+    float aerror = 0, merror = 0;
+    for (auto it_am = am.begin(), it_mm = mm.begin(); it_am != am.end() && it_mm != mm.end(); ++it_am, ++it_mm) {
+        float aerror_ = abs(it_am->norm() - CONSTANT_G_NORM);
+        float merror_ = abs(it_mm->norm() - CONSTANT_N_NORM);
+        if (aerror_ > MAGN_CORRECTION_A_TH || merror_ > MAGN_CORRECTION_M_TH) return 0;
+        aerror += aerror_;
+        merror += merror_;
+    }
+    aerror = aerror / WINDOW_SIZE;
+    merror = merror / WINDOW_SIZE;
+    return 1 - (aerror / MAGN_CORRECTION_A_TH + merror / MAGN_CORRECTION_M_TH) / 2;
+#else
+    return 1;
+#endif
+}
+
+float StateDetector::gravity_correction_confidence() const
+{
+#ifdef ENABLE_GRAV_CORRECTION
+    if (am.size() < WINDOW_SIZE) return 0;
+    float error = 0;
+    for (auto &am_ : am) {
+        float error_ = abs(am_.norm() - CONSTANT_G_NORM);
+        if (error_ > GRAV_CORRECTION_A_TH) return 0;
+        error += error_;
+    }
+    error = error / WINDOW_SIZE;
+    return 1 - error / GRAV_CORRECTION_A_TH;
+#else
+    return 0;
+#endif
+}
+
+float StateDetector::magnetic_correction_confidence() const
+{
+#ifdef ENABLE_MAGN_CORRECTION
+    if (gnangle < 0 || am.size() < WINDOW_SIZE || mm.size() < WINDOW_SIZE) return 0;
+    float aerror = 0, merror = 0, derror = 0;
+    for (auto it_am = am.begin(), it_mm = mm.begin(); it_am != am.end() && it_mm != mm.end(); ++it_am, ++it_mm) {
+        float aerror_ = abs(it_am->norm() - CONSTANT_G_NORM);
+        float merror_ = abs(it_mm->norm() - CONSTANT_N_NORM);
+        float derror_ = abs(angleBetween(-*it_am, *it_mm) - gnangle) * 180.0f / 3.1416f;
+        if (aerror_ > MAGN_CORRECTION_A_TH || merror_ > MAGN_CORRECTION_M_TH || derror_ > MAGN_CORRECTION_D_TH) return 0;
+        aerror += aerror_;
+        merror += merror_;
+        derror += derror_;
+    }
+    aerror = aerror / WINDOW_SIZE;
+    merror = merror / WINDOW_SIZE;
+    derror = derror / WINDOW_SIZE;
+    return 1 - (aerror / MAGN_CORRECTION_A_TH + merror / MAGN_CORRECTION_M_TH + derror / MAGN_CORRECTION_D_TH) / 3;
+#else
+    return 0;
+#endif
+}
+
+float StateDetector::gyrobias_correction_confidence() const
+{
+#if defined(ENABLE_BIAS_CORRECTION) && (WINDOW_SIZE > 4)
+    if (am.size() < WINDOW_SIZE || mm.size() < WINDOW_SIZE) return 0;
+    float aerror = 0, merror = 0;
+    for (auto it_am = am.begin(), it_mm = mm.begin(); it_am != am.end() && it_mm != mm.end(); ++it_am, ++it_mm) {
+        float aerror_ = (*it_am - am.back()).norm();
+        float merror_ = (*it_mm - mm.back()).norm();
+        if (aerror_ > BIAS_CORRECTION_A_TH || merror_ > BIAS_CORRECTION_M_TH) return 0;
+        aerror += aerror_;
+        merror += merror_;
+    }
+    aerror = aerror / (WINDOW_SIZE - 1);
+    merror = merror / (WINDOW_SIZE - 1);
+    return 1 - (aerror / BIAS_CORRECTION_A_TH + merror / BIAS_CORRECTION_M_TH) / 2;
+#else
+    return 0;
+#endif
+}
+
+#else
 
 float SHOEDetector::score(const Eigen::Vector3f &am, const Eigen::Vector3f &wm)
 {
@@ -73,3 +192,5 @@ Eigen::Vector3f NormDetector::get_mean() const
     m_mean /= window_size;
     return m_mean;
 }
+
+#endif

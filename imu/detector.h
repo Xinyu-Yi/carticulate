@@ -3,6 +3,28 @@
 #include "Eigen/Core"
 #include <list>
 
+#ifndef FULL_ESKF_WITH_POS_VEL
+
+class StateDetector {
+public:
+    StateDetector() = default;
+    void init(const Eigen::Vector3f &gI_, const Eigen::Vector3f &nI_);
+    void add(const Eigen::Vector3f &am_, const Eigen::Vector3f &mm_);
+    float initialization_confidence() const;
+    float gravity_correction_confidence() const;
+    float magnetic_correction_confidence() const;
+    float gyrobias_correction_confidence() const;
+
+private:
+    float angleBetween(const Eigen::Vector3f &a, const Eigen::Vector3f &b) const {
+        return std::acos(std::max(-1.0f, std::min(1.0f, a.normalized().dot(b.normalized()))));
+    }
+    float gnangle = -1.0f;
+    std::list<Eigen::Vector3f> am;
+    std::list<Eigen::Vector3f> mm;
+};
+
+#else
 
 class SHOEDetector {
 public:
@@ -33,3 +55,5 @@ private:
     float c;
     std::list<Eigen::Vector3f> window;
 };
+
+#endif

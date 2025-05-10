@@ -1,5 +1,177 @@
 #include "eskf_imu.h"
-#include <iostream>
+
+
+using namespace std;
+
+
+#ifndef FULL_ESKF_WITH_POS_VEL
+
+
+#define CONFIDENCE_TO_SIGMA(x) (1/((x)+1e-7))
+#define OBSERVATION_GRAVITY     0x0001
+#define OBSERVATION_MAGNETIC    0x0002
+#define OBSERVATION_GYROBIAS    0x0004
+
+
+ESKF_IMU::ESKF_IMU(float an, float wn, float mn, float ww) : is_init(false), an(an), wn(wn), mn(mn), ww(ww) {}
+
+
+Eigen::MatrixXf ESKF_IMU::Fdx(const Eigen::Vector3f &wm, float dt) const
+{
+    Eigen::MatrixXf Fdx = Eigen::MatrixXf::Zero(ErrorState::DIM, ErrorState::DIM);
+    Fdx.block<3, 3>(0, 0) = SO3::Exp((wm - nominal_state.wb) * dt).transpose();
+    Fdx.block<3, 3>(0, 3) = -Eigen::Matrix3f::Identity() * dt;
+    Fdx.block<3, 3>(3, 3) = Eigen::Matrix3f::Identity();
+    return Fdx;
+}
+
+
+Eigen::MatrixXf ESKF_IMU::Fi_Qi_FiT(float dt) const
+{
+    Eigen::MatrixXf Fi_Qi_FiT = Eigen::MatrixXf::Zero(ErrorState::DIM, ErrorState::DIM);
+    Fi_Qi_FiT.block<3, 3>(0, 0) = Eigen::Matrix3f::Identity() * pow(wn, 2) * dt * dt;
+    Fi_Qi_FiT.block<3, 3>(3, 3) = Eigen::Matrix3f::Identity() * pow(ww, 2) * dt;
+    return Fi_Qi_FiT;
+}
+
+
+Eigen::MatrixXf ESKF_IMU::Hdx(const Eigen::Vector3f &am, const Eigen::Vector3f &mm, unsigned int observationFlag) const
+{
+    int r = 0, n = count_observations(observationFlag);
+    Eigen::MatrixXf Hdx = Eigen::MatrixXf::Zero(n * 3, ErrorState::DIM);
+    if (observationFlag & OBSERVATION_GRAVITY ) { Hdx.block<3, 3>(r, 0) = SO3::dRaddtheta(nominal_state.q, am); r += 3; }
+    if (observationFlag & OBSERVATION_MAGNETIC) { Hdx.block<3, 3>(r, 0) = SO3::dRaddtheta(nominal_state.q, mm); r += 3; }
+    if (observationFlag & OBSERVATION_GYROBIAS) { Hdx.block<3, 3>(r, 3) = -Eigen::Matrix3f::Identity(); r += 3; }
+    return Hdx;
+}
+
+
+Eigen::MatrixXf ESKF_IMU::R(float cgrav, float cmagn, float cbias, unsigned int observationFlag) const
+{
+    int r = 0, n = count_observations(observationFlag);
+    Eigen::MatrixXf R = Eigen::MatrixXf::Zero(n * 3, n * 3);
+    if (observationFlag & OBSERVATION_GRAVITY ) { R.block<3, 3>(r, r) = CONFIDENCE_TO_SIGMA(cgrav) * pow(an, 2) * Eigen::Matrix3f::Identity(); r += 3; }
+    if (observationFlag & OBSERVATION_MAGNETIC) { R.block<3, 3>(r, r) = CONFIDENCE_TO_SIGMA(cmagn) * pow(mn, 2) * Eigen::Matrix3f::Identity(); r += 3; }
+    if (observationFlag & OBSERVATION_GYROBIAS) { R.block<3, 3>(r, r) = CONFIDENCE_TO_SIGMA(cbias) * pow(wn, 2) * Eigen::Matrix3f::Identity(); r += 3; }
+    return R;
+}
+
+
+Eigen::VectorXf ESKF_IMU::h(const Eigen::Vector3f &am, const Eigen::Vector3f &wm, const Eigen::Vector3f &mm, unsigned int observationFlag) const
+{
+    int r = 0, n = count_observations(observationFlag);
+    Eigen::VectorXf y = Eigen::VectorXf::Zero(n * 3);
+    if (observationFlag & OBSERVATION_GRAVITY ) { y.segment<3>(r) = nominal_state.q.toRotationMatrix() * am + gI; r += 3; }
+    if (observationFlag & OBSERVATION_MAGNETIC) { y.segment<3>(r) = nominal_state.q.toRotationMatrix() * mm - nI; r += 3; }
+    if (observationFlag & OBSERVATION_GYROBIAS) { y.segment<3>(r) = wm - nominal_state.wb; r += 3; }
+    return y;
+}
+
+
+Eigen::VectorXf ESKF_IMU::y(unsigned int observationFlag) const
+{
+    int n = count_observations(observationFlag);
+    Eigen::VectorXf y = Eigen::VectorXf::Zero(n * 3);
+    return y;
+}
+
+
+Eigen::MatrixXf ESKF_IMU::G() const
+{
+    Eigen::MatrixXf G = Eigen::MatrixXf::Identity(ErrorState::DIM, ErrorState::DIM);
+    G.block<3, 3>(0, 0) = Eigen::Matrix3f::Identity() - SO3::hat(error_state.theta / 2);
+    return G;
+}
+
+
+bool ESKF_IMU::initialize(const Eigen::Matrix3f &RIS, const Eigen::Vector3f &gI, const Eigen::Vector3f &nI)
+{
+    // initialize nominal state and error state
+    nominal_state.reset();
+    error_state.reset();
+    nominal_state.q = Eigen::Quaternionf(RIS);
+
+    // initialize global gravity and magnetic field
+    this->gI = gI;
+    this->nI = nI;
+    state_detector.init(gI, nI);
+
+    // initialize covariance matrix P
+    P = Eigen::MatrixXf::Zero(ErrorState::DIM, ErrorState::DIM);
+    P.block<3, 3>(0, 0) = Eigen::Matrix3f::Identity() * 1e-3;           // Var(theta)
+    P.block<3, 3>(3, 3) = Eigen::Matrix3f::Identity() * pow(ww, 2);     // Var(wb)
+
+    is_init = true;
+    return is_init;
+}
+
+
+bool ESKF_IMU::initialize(const Eigen::Vector3f &am, const Eigen::Vector3f &mm)
+{
+    state_detector.add(am, mm);
+    if (state_detector.initialization_confidence() < 0.5) return false;
+
+    const Eigen::Vector3f a = am;
+    const Eigen::Vector3f m = mm;
+
+    // compute sensor orientation in NED global frame
+    Eigen::Matrix3f R;
+    R.col(2) = -a.normalized();
+    R.col(1) = R.col(2).cross(m).normalized();
+    R.col(0) = R.col(1).cross(R.col(2)).normalized();
+    R.transposeInPlace();
+
+    return initialize(R, -R * a, R * m);
+}
+
+
+void ESKF_IMU::predict(const Eigen::Vector3f &wm, float dt)
+{
+    if (!is_init) throw runtime_error("ESKF_IMU is not initialized");
+    const Eigen::MatrixXf _Fdx = Fdx(wm, dt);
+    const Eigen::MatrixXf _Fi_Qi_FiT = Fi_Qi_FiT(dt);
+    nominal_state.update(wm, dt);
+    // error_state = ErrorState(_Fdx * error_state.to_vector());  // always zero
+    P = _Fdx * P * _Fdx.transpose() + _Fi_Qi_FiT;
+}
+
+
+void ESKF_IMU::correct(const Eigen::Vector3f &am, const Eigen::Vector3f &wm, const Eigen::Vector3f &mm)
+{
+    if (!is_init) throw runtime_error("ESKF_IMU is not initialized");
+
+    // check observations
+    state_detector.add(am, mm);
+    float cgrav = state_detector.gravity_correction_confidence();
+    float cmagn = state_detector.magnetic_correction_confidence();
+    float cbias = state_detector.gyrobias_correction_confidence();
+
+    unsigned int observation_flag =
+        (cgrav > 0 ? OBSERVATION_GRAVITY  : 0U) |
+        (cmagn > 0 ? OBSERVATION_MAGNETIC : 0U) |
+        (cbias > 0 ? OBSERVATION_GYROBIAS : 0U);
+
+    if (observation_flag > 0) {
+        // update error state by observation
+        const Eigen::MatrixXf _R = R(cgrav, cmagn, cbias, observation_flag);
+        const Eigen::VectorXf _y = y(observation_flag);
+        const Eigen::MatrixXf _Hdx = Hdx(am, mm, observation_flag);
+        const Eigen::VectorXf _h = h(am, wm, mm, observation_flag);
+        const Eigen::MatrixXf _I = Eigen::MatrixXf::Identity(ErrorState::DIM, ErrorState::DIM);
+        const Eigen::MatrixXf _K = P * _Hdx.transpose() * (_Hdx * P * _Hdx.transpose() + _R).inverse();
+        error_state = ErrorState(_K * (_y - _h));
+        // P = (_I - _K * _Hdx) * P;   // poor numerical stability
+        P = (_I - _K * _Hdx) * P * (_I - _K * _Hdx).transpose() + _K * _R * _K.transpose();  // Joseph form of covariance update
+
+        // correct nominal state and reset error state
+        const Eigen::MatrixXf _G = G();
+        nominal_state.correct(error_state);
+        P = _G * P * _G.transpose();
+        error_state.reset();
+    }
+}
+
+#else
 
 #define TRUNCATION_ORDER     3    // discrete-time integration truncation order of exponential map
 #define BIAS_INITIAL_VALUE   5    // initial uncertainty of sensor bias
@@ -19,9 +191,6 @@
 #define OBSERVATION_POSITION    0x0008
 #define OBSERVATION_VELOCITY    0x0010
 #define OBSERVATION_NOTUSE      0x0020
-
-
-using namespace std;
 
 
 const Eigen::Vector3f ESKF_IMU::null_observation(2023, 6, 10);
@@ -273,3 +442,4 @@ Eigen::VectorXf ESKF_IMU::correct(const Eigen::Vector3f &am, const Eigen::Vector
     score01debug << sm, sa, sw, sp, sv;
     return score01debug;
 }
+#endif

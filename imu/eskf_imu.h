@@ -6,6 +6,105 @@
 #include "detector.h"
 
 
+#ifndef FULL_ESKF_WITH_POS_VEL
+
+struct ErrorState {
+    constexpr static int DIM = 6;
+    Eigen::Vector3f theta;
+    Eigen::Vector3f wb;
+
+    ErrorState() = default;
+    ErrorState(const Eigen::Vector3f &theta_,
+               const Eigen::Vector3f &wb_) :
+        theta(theta_), wb(wb_) {}
+    ErrorState(const Eigen::VectorXf &x) {
+        theta = x.segment<3>(0);
+        wb = x.segment<3>(3);
+    }
+    Eigen::VectorXf to_vector() const {
+        Eigen::VectorXf x(DIM);
+        x << theta, wb;
+        return x;
+    }
+    void reset() {
+        theta.setZero();
+        wb.setZero();
+    }
+};
+
+
+struct NominalState {
+    constexpr static int DIM = 7;
+    Eigen::Quaternionf q;
+    Eigen::Vector3f wb;
+
+    NominalState() = default;
+    NominalState(const Eigen::Quaternionf &q_,
+                 const Eigen::Vector3f &wb_) :
+        q(q_), wb(wb_) {}
+    NominalState(const Eigen::VectorXf &x) {
+        q = Eigen::Quaternionf(x[0], x[1], x[2], x[3]);
+        wb = x.segment<3>(4);
+    }
+    Eigen::VectorXf to_vector() const {
+        Eigen::VectorXf x(DIM);
+        x << q.w(), q.x(), q.y(), q.z(), wb;
+        return x;
+    }
+    void correct(const ErrorState &e) {
+        q = q * SO3::Exp_q(e.theta);
+        wb += e.wb;
+    }
+    void update(const Eigen::Vector3f &wm, float dt) {
+        q = q * SO3::Exp_q((wm - wb) * dt);
+        wb = wb;
+    }
+    void reset() {
+        q.setIdentity();
+        wb.setZero();
+    }
+};
+
+
+class ESKF_IMU {
+public:
+    ESKF_IMU(float an, float wn, float mn, float ww);   // accelerometer[a]/gyroscope[w]/magnetometer[m]'s measurement noise[n]/random walk[w] standard deviation
+
+    bool initialize(const Eigen::Matrix3f &RIS, const Eigen::Vector3f &gI, const Eigen::Vector3f &nI);
+    bool initialize(const Eigen::Vector3f &am, const Eigen::Vector3f &mm);
+    void predict(const Eigen::Vector3f &wm, float dt);
+    void correct(const Eigen::Vector3f &am, const Eigen::Vector3f &wm, const Eigen::Vector3f &mm);
+
+    const StateDetector &get_detector() const { return state_detector; }
+    const NominalState &get_state() const { return nominal_state; }
+    Eigen::MatrixXf get_P() const { return P; }      // get state covariance matrix
+    Eigen::Vector3f get_gI() const { return gI; }    // get gravity vector
+    Eigen::Vector3f get_nI() const { return nI; }    // get magnetic field vector
+    bool is_initialized() const { return is_init; }  // check if initialized
+
+private:
+    Eigen::MatrixXf Fdx(const Eigen::Vector3f &wm, float dt) const;
+    Eigen::MatrixXf Fi_Qi_FiT(float dt) const;
+    Eigen::MatrixXf Hdx(const Eigen::Vector3f &am, const Eigen::Vector3f &mm, unsigned int observationFlag) const;
+    Eigen::MatrixXf R(float cgrav, float cmagn, float cbias, unsigned int observationFlag) const;
+    Eigen::VectorXf h(const Eigen::Vector3f &am, const Eigen::Vector3f &wm, const Eigen::Vector3f &mm, unsigned int observationFlag) const;
+    Eigen::VectorXf y(unsigned int observationFlag) const;
+    Eigen::MatrixXf G() const;
+
+private:
+    const float an, wn, mn, ww;
+    bool is_init;
+    Eigen::Matrix<float, ErrorState::DIM, ErrorState::DIM> P;
+    Eigen::Vector3f gI;
+    Eigen::Vector3f nI;
+
+    StateDetector state_detector;
+    NominalState nominal_state;
+    ErrorState error_state;
+};
+
+#else
+
 struct ErrorState {
     constexpr static int DIM = 15;
     Eigen::Vector3f p;
@@ -145,3 +244,5 @@ private:
     NominalState nominal_state;
     ErrorState error_state;
 };
+
+#endif
