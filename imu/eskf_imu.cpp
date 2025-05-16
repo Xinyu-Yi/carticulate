@@ -4,6 +4,17 @@
 using namespace std;
 
 
+// count 1 in a binary number
+inline int count_observations(unsigned int flag) {
+    int n = 0;
+    while (flag) {
+        n += 1;
+        flag &= (flag - 1);
+    }
+    return n;
+}
+
+
 #ifndef FULL_ESKF_WITH_POS_VEL
 
 
@@ -12,15 +23,28 @@ using namespace std;
 #define OBSERVATION_MAGNETIC    0x0002
 #define OBSERVATION_GYROBIAS    0x0004
 
+#define SCALE_COV_THETA_WB      1e-3
+#define SCALE_INITIAL_WB        1e-1
+#define SCALE_CONFIDENT_WB      1e-3
+
 
 ESKF_IMU::ESKF_IMU(float an, float wn, float mn, float ww) : is_init(false), an(an), wn(wn), mn(mn), ww(ww) {}
 
+
+float ESKF_IMU::get_wb_confidence() const
+{
+    float a = -log(pow(wn, 2) * SCALE_INITIAL_WB);
+    float b = -log(pow(wn, 2) * SCALE_CONFIDENT_WB);
+    float t = -log((P(3, 3) + P(4, 4) + P(5, 5)) / 3);
+    float c = max(0.0f, min(1.0f, (t - a) / (b - a)));
+    return c;
+}
 
 Eigen::MatrixXf ESKF_IMU::Fdx(const Eigen::Vector3f &wm, float dt) const
 {
     Eigen::MatrixXf Fdx = Eigen::MatrixXf::Zero(ErrorState::DIM, ErrorState::DIM);
     Fdx.block<3, 3>(0, 0) = SO3::Exp((wm - nominal_state.wb) * dt).transpose();
-    Fdx.block<3, 3>(0, 3) = -Eigen::Matrix3f::Identity() * dt;
+    Fdx.block<3, 3>(0, 3) = -Eigen::Matrix3f::Identity() * dt * SCALE_COV_THETA_WB;   // decrease covariance between theta and wb => decrease wb update in grav/mag correction
     Fdx.block<3, 3>(3, 3) = Eigen::Matrix3f::Identity();
     return Fdx;
 }
@@ -99,17 +123,17 @@ bool ESKF_IMU::initialize(const Eigen::Matrix3f &RIS, const Eigen::Vector3f &gI,
     // initialize covariance matrix P
     P = Eigen::MatrixXf::Zero(ErrorState::DIM, ErrorState::DIM);
     P.block<3, 3>(0, 0) = Eigen::Matrix3f::Identity() * 1e-3;           // Var(theta)
-    P.block<3, 3>(3, 3) = Eigen::Matrix3f::Identity() * pow(ww, 2);     // Var(wb)
+    P.block<3, 3>(3, 3) = Eigen::Matrix3f::Identity() * pow(wn, 2) * SCALE_INITIAL_WB;     // Var(wb)
 
     is_init = true;
     return is_init;
 }
 
 
-bool ESKF_IMU::initialize(const Eigen::Vector3f &am, const Eigen::Vector3f &mm)
+bool ESKF_IMU::initialize(const Eigen::Vector3f &am, const Eigen::Vector3f &wm,  const Eigen::Vector3f &mm)
 {
-    state_detector.add(am, mm);
-    if (state_detector.initialization_confidence() < 0.5) return false;
+    state_detector.add(am, wm, mm);
+    if (state_detector.initialization_confidence() == 0) return false;
 
     const Eigen::Vector3f a = am;
     const Eigen::Vector3f m = mm;
@@ -141,7 +165,7 @@ void ESKF_IMU::correct(const Eigen::Vector3f &am, const Eigen::Vector3f &wm, con
     if (!is_init) throw runtime_error("ESKF_IMU is not initialized");
 
     // check observations
-    state_detector.add(am, mm);
+    state_detector.add(am, wm, mm);
     float cgrav = state_detector.gravity_correction_confidence();
     float cmagn = state_detector.magnetic_correction_confidence();
     float cbias = state_detector.gyrobias_correction_confidence();

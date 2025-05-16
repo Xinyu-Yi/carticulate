@@ -3,7 +3,6 @@
 #include "Eigen/Core"
 #include "Eigen/Geometry"
 #include "sophus/so3.hpp"
-#include <iostream>
 
 namespace SO3 {
 
@@ -42,21 +41,3 @@ inline Eigen::Matrix3f dRaddtheta(const Eigen::Quaternionf &q, const Eigen::Vect
 
 
 } // namespace SO3
-
-
-inline int count_observations(unsigned int flag) {
-    // count 1 in a binary number
-    int n = 0;
-    while (flag) {
-        n += 1;
-        flag &= (flag - 1);
-    }
-    return n;
-}
-
-inline void print_matrix(const char *name, const Eigen::MatrixXf &m) {
-    std::cout << "\n------------------ Matrix begin (" << name << ") ---------------------\n"
-              << m
-              << "\n------------------- Matrix end (" << name << ") ----------------------\n"
-              << std::endl;
-}

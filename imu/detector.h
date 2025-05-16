@@ -9,7 +9,7 @@ class StateDetector {
 public:
     StateDetector() = default;
     void init(const Eigen::Vector3f &gI_, const Eigen::Vector3f &nI_);
-    void add(const Eigen::Vector3f &am_, const Eigen::Vector3f &mm_);
+    void add(const Eigen::Vector3f &am_, const Eigen::Vector3f &wm_, const Eigen::Vector3f &mm_);
     float initialization_confidence() const;
     float gravity_correction_confidence() const;
     float magnetic_correction_confidence() const;
@@ -21,6 +21,7 @@ private:
     }
     float gnangle = -1.0f;
     std::list<Eigen::Vector3f> am;
+    std::list<Eigen::Vector3f> wm;
     std::list<Eigen::Vector3f> mm;
 };
 

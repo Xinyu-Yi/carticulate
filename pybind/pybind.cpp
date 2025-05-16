@@ -128,10 +128,10 @@ PYBIND11_MODULE(carticulate, m) {
 
 #ifndef FULL_ESKF_WITH_POS_VEL
     py::class_<ESKF_IMU>(m, "ESKF")
-        .def(py::init<float, float, float, float>(), "initialize ESKF with accelerometer[a]/gyroscope[w]/magnetometer[m] measurement noise[n]/random walk[w] standard deviation", py::arg("an"), py::arg("wn"), py::arg("mn"), py::arg("ww"))
+        .def(py::init<float, float, float, float>(), "initialize ESKF with accelerometer[a]/gyroscope[w]/magnetometer[m] measurement noise[n]/random walk[w] standard deviation", py::arg("an") = 1e-3, py::arg("wn") = 1e-4, py::arg("mn") = 1e-3, py::arg("ww") = 1e-9)
         .def("is_initialized", &ESKF_IMU::is_initialized, "is ESKF initialized")
         .def("initialize", py::overload_cast<const Eigen::Matrix3f &, const Eigen::Vector3f &, const Eigen::Vector3f &>(&ESKF_IMU::initialize), "9dof initialization with known sensor orientation RIS, gravity vector gI, magnetic field vector nI, and return succeed or not", py::arg("RIS"), py::arg("gI"), py::arg("nI"))
-        .def("initialize", py::overload_cast<const Eigen::Vector3f &, const Eigen::Vector3f &>(&ESKF_IMU::initialize), "9dof initialization with accelerometer measurement am and magnetometer measurement mm, and return succeed or not", py::arg("am"), py::arg("mm"))
+        .def("initialize", py::overload_cast<const Eigen::Vector3f &, const Eigen::Vector3f &, const Eigen::Vector3f &>(&ESKF_IMU::initialize), "9dof initialization with accelerometer, gyroscope, and magnetometer measurement am, wm, mm, and return succeed or not", py::arg("am"), py::arg("wm"), py::arg("mm"))
         .def("predict", &ESKF_IMU::predict, "ESKF prediction with gyroscope measurement wm and time interval dt", py::arg("wm"), py::arg("dt"))
         .def("correct", &ESKF_IMU::correct, "ESKF correction with accelerometer[a]/gyroscope[w]/magnetometer[m] measurement[m]", py::arg("am"), py::arg("wm"), py::arg("mm"))
         .def("get_initialization_confidence", [](const ESKF_IMU &eskf) { return eskf.get_detector().initialization_confidence(); }, "get initialization confidence")
@@ -141,6 +141,7 @@ PYBIND11_MODULE(carticulate, m) {
         .def("get_orientation_q", [](const ESKF_IMU &eskf) { return Qf_to_V4f(eskf.get_state().q); }, "get sensor orientation estimation (quaternion)")
         .def("get_orientation_R", [](const ESKF_IMU &eskf) { return eskf.get_state().q.matrix(); }, "get sensor orientation estimation (rotation matrix)")
         .def("get_gyroscope_bias", [](const ESKF_IMU &eskf) { return eskf.get_state().wb; }, "get gyroscope bias estimation")
+        .def("get_gyroscope_bias_confidence", [](const ESKF_IMU &eskf) { return eskf.get_wb_confidence(); }, "get gyroscope bias confidence in [0, 1]")
         .def("get_state_covariance_matrix", &ESKF_IMU::get_P, "get state covariance matrix")
         .def("get_gravity_vector", &ESKF_IMU::get_gI, "get gravity vector")
         .def("get_magnetic_field_vector", &ESKF_IMU::get_nI, "get magnetic field vector");
