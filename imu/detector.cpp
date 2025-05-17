@@ -9,7 +9,7 @@
 #define ENABLE_INITIALIZATION_CHECK
 #define PRINT_INITIALIZATION_CHECK
 #define INITIALIZATION_A_TH     0.2   // "|aS| - g" threshold
-#define INITIALIZATION_M_TH     0.02  // "|mS| - n" threshold
+#define INITIALIZATION_M_TH     0.05  // "|mS| - n" threshold
 
 #define ENABLE_GRAV_CORRECTION
 //#define PRINT_GRAV_CORRECTION
