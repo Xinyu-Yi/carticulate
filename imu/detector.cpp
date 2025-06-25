@@ -9,7 +9,7 @@
 #define ENABLE_INITIALIZATION_CHECK
 #define PRINT_INITIALIZATION_CHECK
 #define INITIALIZATION_A_TH     0.2   // "|aS| - g" threshold
-#define INITIALIZATION_M_TH     0.05  // "|mS| - n" threshold
+#define INITIALIZATION_M_TH     0.1   // "|mS| - n" threshold
 
 #define ENABLE_GRAV_CORRECTION
 //#define PRINT_GRAV_CORRECTION
@@ -18,7 +18,7 @@
 #define ENABLE_MAGN_CORRECTION
 //#define PRINT_MAGN_CORRECTION
 #define MAGN_CORRECTION_A_TH    1     // "|aS| - g" threshold
-#define MAGN_CORRECTION_M_TH    0.1   // "|mS| - n" threshold
+#define MAGN_CORRECTION_M_TH    0.2   // "|mS| - n" threshold
 #define MAGN_CORRECTION_D_TH    10    // "<aS, mS> - gnangle" threshold
 
 #define ENABLE_BIAS_CORRECTION

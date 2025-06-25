@@ -68,7 +68,7 @@ struct NominalState {
 
 class ESKF_IMU {
 public:
-    ESKF_IMU(float an = 1e-3, float wn = 1e-4, float mn = 1e-3, float ww = 1e-9);   // accelerometer[a]/gyroscope[w]/magnetometer[m]'s measurement noise[n]/random walk[w] standard deviation
+    ESKF_IMU(float an = 5e-3, float wn = 1e-4, float mn = 1e-2, float ww = 1e-9);   // accelerometer[a]/gyroscope[w]/magnetometer[m]'s measurement noise[n]/random walk[w] standard deviation
 
     bool initialize(const Eigen::Matrix3f &RIS, const Eigen::Vector3f &gI, const Eigen::Vector3f &nI);
     bool initialize(const Eigen::Vector3f &am, const Eigen::Vector3f &wm, const Eigen::Vector3f &mm);
